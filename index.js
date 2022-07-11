@@ -6,6 +6,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.static('build'));
 
 morgan.token('body', (req, res) => {
   return JSON.stringify(req.body);
@@ -34,6 +35,11 @@ let phonenumbers = [
     name: 'Mary Poppendieck',
     number: '39-23-6435323',
   },
+  {
+    id: 5,
+    name: 'Maija Poppanen',
+    number: '39-23-6435323',
+  }
 ]
 
 // Random number for person ids
@@ -49,6 +55,7 @@ app.get('/', (req, res) => {
 
 // GET all
 app.get('/api/persons', (req, res) => {
+  console.log('Request body:', req.body);
   res.json(phonenumbers);
 });
 
@@ -67,8 +74,6 @@ app.get('/api/persons/:id', (req, res) => {
 app.delete('/api/persons/:id', (req, res) => {
   const id = Number(req.params.id);
 
-  console.log("Person: ", phonenumbers.some(person => person.id === id) );
-
   if (phonenumbers.some(person => person.id === id)) {
     phonenumbers = phonenumbers.filter(person => person.id !== id);
     res.status(200).json({ success: `Person with id ${id} deleted` });
@@ -80,9 +85,10 @@ app.delete('/api/persons/:id', (req, res) => {
 // POST create new person
 app.post('/api/persons', (req, res) => {
   const body = req.body;
+
+  console.log("Body: ", body);
   
-  if (body.name === undefined || body.number === undefined 
-    || body.name === '' || body.number === '') {
+  if (body.name === undefined || body.number === undefined || body.name === '' || body.number === '') {
     return res.status(400).json({ error: 'Name or number missing.' });
   }
   else if (phonenumbers.some(person => person.name === body.name)) {
