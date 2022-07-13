@@ -1,8 +1,10 @@
+require('dotenv').config();
 const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
+const Person = require('./models/person');
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT;
 
 app.use(cors());
 app.use(express.json());
@@ -42,6 +44,23 @@ let phonenumbers = [
   }
 ]
 
+// Middleware, joka käsittelee pyynnöt, jotka eivät päädy määriteltyihin reitteihin
+const unknownEndpoint = (request, response) => {
+  response.status(404).end();
+}
+
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message);
+
+  if (error.name === 'CastError') {
+    return res.status(400).send({ error: 'malformatted id' });
+  } else if (error.name === 'ValidationError') {
+    return res.status(400).send({ error: error.message });
+  }
+
+  next(error);
+}
+
 // Random number for person ids
 const generateId = () => {
   const randomID = Math.floor(Math.random() * 1000000);
@@ -55,58 +74,90 @@ app.get('/', (req, res) => {
 
 // GET all
 app.get('/api/persons', (req, res) => {
-  console.log('Request body:', req.body);
-  res.json(phonenumbers);
+  Person.find({}).then(result => {
+    res.json(result);
+  }).catch(error => {
+    console.log(error);
+  })
 });
 
 // GET with ID
-app.get('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id);
-  const person = phonenumbers.find(person => person.id === id);
-  if (person) {
-    res.json(person);
-  } else {
-    res.status(404).json({ error: `Person with id ${id} not found` });
-  }
+app.get('/api/persons/:id', (req, res, next) => {
+  const id = req.params.id;
+
+  console.log('ID: ', id);
+  
+  Person.findById(id).then(result => {
+    console.log('result: ', result);
+    if (result) {
+      res.json(result);
+    } else {
+      res.status(404).json({ error: `Person with id ${id} not found` });
+    }
+  }).catch(error => next(error))  
 });
+
+// Update person with ID
+app.put('/api/persons/:id', (req, res, next) => {
+  const id = req.params.id;
+  const body = req.body;
+
+  const person = {
+    name: body.name,
+    number: body.number,
+  }
+
+  Person.findByIdAndUpdate(id, person, { new: true }).then(result => {
+    res.json(result);
+  }).catch(error => next(error))
+})
+
+app.use(errorHandler);
 
 // DELETE with ID
 app.delete('/api/persons/:id', (req, res) => {
-  const id = Number(req.params.id);
+  const id = req.params.id;
 
-  if (phonenumbers.some(person => person.id === id)) {
-    phonenumbers = phonenumbers.filter(person => person.id !== id);
-    res.status(200).json({ success: `Person with id ${id} deleted` });
-  } else {
-    res.status(404).json({ error: `Person with id ${id} not found` });
-  }
+  Person.findByIdAndRemove(id).then(result => {
+    if (result) {
+      res.status(200).json({ success: `Person with id ${id} deleted` });
+    } else {
+      res.status(404).json({ error: `Person with id ${id} not found` });
+    }
+  }).catch(error => {
+    console.log(error);
+    res.status(400).json({ error: 'Wrong type of an ID' });
+  })
 });
 
 // POST create new person
 app.post('/api/persons', (req, res) => {
   const body = req.body;
-
-  console.log("Body: ", body);
   
-  if (body.name === undefined || body.number === undefined || body.name === '' || body.number === '') {
+  if (body.name === undefined || body.number === undefined || body.name === '' || body.number.length === 0) {
     return res.status(400).json({ error: 'Name or number missing.' });
   }
-  else if (phonenumbers.some(person => person.name === body.name)) {
-    return res.status(400).json({ error: 'Name already exists.' });
-  } 
   else {
-    const person = {
-      id: generateId(),
-      name: body.name,
-      number: body.number,
-    };
-  
-    phonenumbers = [ ...phonenumbers, person ];
-    res.status(201).json({message: 'Created Succesfully', person });
+    Person.findOne({ name: body.name }).then(result => {
+      if (result) {
+        return res.status(400).json({ error: 'Name must be unique.' });
+      } 
+      else {
+        const person = new Person({
+          name: body.name,
+          number: body.number,
+        });
+      
+        person.save().then(savedPerson => {
+          res.status(201).json(savedPerson);
+        }).catch(error => {
+          console.log(error);
+          res.status(400).json({ error: 'Error saving person' });
+        })
+      }
+    })
   }
 });
-
-
 
 // GET Info
 app.get('/info', (req, res) => {
@@ -114,11 +165,6 @@ app.get('/info', (req, res) => {
   
   res.status(200).send(`<div><p>Phonebook has info for ${phonenumbers.length} people</p><p>${date}</p></div>`);
 })
-
-// Middleware, joka käsittelee pyynnöt, jotka eivät päädy määriteltyihin reitteihin
-const unknownEndpoint = (request, response) => {
-  response.status(404).send({ error: 'unknown endpoint' })
-}
 
 app.use(unknownEndpoint)
 
