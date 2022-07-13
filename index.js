@@ -3,6 +3,7 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const Person = require('./models/person');
+const person = require('./models/person');
 const app = express();
 const PORT = process.env.PORT;
 
@@ -162,8 +163,11 @@ app.post('/api/persons', (req, res) => {
 // GET Info
 app.get('/info', (req, res) => {
   const date = new Date();
-  
-  res.status(200).send(`<div><p>Phonebook has info for ${phonenumbers.length} people</p><p>${date}</p></div>`);
+  person.find({}).then(result => {
+    res.send(`<div><p>Phonebook has info for ${result.length} people</p><p>${date}</p></div>`);
+  }).catch(error => {
+    console.log(error);
+  });  
 })
 
 app.use(unknownEndpoint)
