@@ -113,8 +113,6 @@ app.put('/api/persons/:id', (req, res, next) => {
   }).catch(error => next(error))
 })
 
-app.use(errorHandler);
-
 // DELETE with ID
 app.delete('/api/persons/:id', (req, res) => {
   const id = req.params.id;
@@ -132,37 +130,33 @@ app.delete('/api/persons/:id', (req, res) => {
 });
 
 // POST create new person
-app.post('/api/persons', (req, res) => {
+app.post('/api/persons', (req, res, next) => {
   const body = req.body;
   
-  if (body.name === undefined || body.number === undefined || body.name === '' || body.number.length === 0) {
-    return res.status(400).json({ error: 'Name or number missing.' });
-  }
-  else {
-    Person.findOne({ name: body.name }).then(result => {
-      if (result) {
-        return res.status(400).json({ error: 'Name must be unique.' });
-      } 
-      else {
-        const person = new Person({
-          name: body.name,
-          number: body.number,
-        });
-      
-        person.save().then(savedPerson => {
-          res.status(201).json(savedPerson);
-        }).catch(error => {
-          console.log(error);
-          res.status(400).json({ error: 'Error saving person' });
-        })
-      }
-    })
-  }
+  Person.findOne({ name: body.name }).then(result => {
+    if (result) {
+      return res.status(400).json({ error: 'Name must be unique.' });
+    } 
+    else {
+      const person = new Person({
+        name: body.name,
+        number: body.number,
+      });
+    
+      person.save().then(savedPerson => {
+        res.status(201).json(savedPerson);
+      }).catch(error => next(error));
+    }
+  })
+  
 });
+
+app.use(errorHandler);
 
 // GET Info
 app.get('/info', (req, res) => {
   const date = new Date();
+
   person.find({}).then(result => {
     res.send(`<div><p>Phonebook has info for ${result.length} people</p><p>${date}</p></div>`);
   }).catch(error => {
