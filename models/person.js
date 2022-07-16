@@ -22,11 +22,11 @@ const personSchema = new mongoose.Schema({
     type: String,
     validate: {
       validator: function(v) {
-        return /^\d{2,3}-\d{2}-\d*/.test(v);
+        return /^\d{2,3}-\d{5}/.test(v)
       },
-      message: props => `${props.value} is not a valid phone number! Number format: xxx-xx-xxxx`, 
+      message: props => `${props.value} is not a valid phone number! Try: xx-.. or xxx-.., atleast 8 digits`,
     },
-    min: [8, `Number must be at least 8 digits, got {VALUE}`],
+    min: [8, 'Number must be at least 8 digits, got {VALUE}'],
     required: [true, 'Number is required'],
   },
 })
